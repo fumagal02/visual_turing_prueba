@@ -1,8 +1,8 @@
 // Configuration
-const TOTAL_TRIALS = 50;
+const TOTAL_TRIALS = 20;
 let currentTrial = 0;
 let answers = [];  // each entry: { trial, correct: bool, userChoice: 'left'/'right', realSide: 'left'/'right' }
-
+// PRUEBAAAAA
 // Pre‑generate a randomised order of the 50 image pairs
 // Each pair index i (0..49) corresponds to real_i + synth_i
 let trials = [];
