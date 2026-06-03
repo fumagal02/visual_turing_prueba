@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual Turing Test – Mammograms</title>
+    <style>
+        body { font-family: Arial; text-align: center; padding: 20px; }
+        .image-container { display: flex; justify-content: center; gap: 40px; margin: 30px 0; }
+        .image-card { text-align: center; }
+        img { width: 400px; height: auto; border: 2px solid #ccc; border-radius: 8px; }
+        button { margin: 10px; padding: 10px 20px; font-size: 16px; cursor: pointer; }
+        .trial-info { font-size: 18px; margin: 20px; }
+        #result-area { margin-top: 30px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Visual Turing Test: Real vs Synthetic Mammograms</h1>
+    <p>Which image is the <strong>real</strong> mammogram?</p>
+    <div class="trial-info">Trial <span id="trial-num">1</span> / 50</div>
+    <div class="image-container">
+        <div class="image-card">
+            <img id="left-img" src="" alt="Left image">
+            <button id="left-btn">Left is real</button>
+        </div>
+        <div class="image-card">
+            <img id="right-img" src="" alt="Right image">
+            <button id="right-btn">Right is real</button>
+        </div>
+    </div>
+    <div id="result-area"></div>
+
+    <script src="turing-test.js"></script>
+</body>
+</html>
