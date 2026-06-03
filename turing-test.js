@@ -1,32 +1,57 @@
 // Configuration
 const TOTAL_TRIALS = 20;
+const POOL_SIZE = 20; // total available pairs on disk
 let currentTrial = 0;
-let answers = [];  // each entry: { trial, correct: bool, userChoice: 'left'/'right', realSide: 'left'/'right' }
-// PRUEBAAAAA
-// Pre‑generate a randomised order of the 50 image pairs
-// Each pair index i (0..49) corresponds to real_i + synth_i
-let trials = [];
-for (let i = 0; i < TOTAL_TRIALS; i++) {
-    // Randomly decide whether real is on left (true) or right (false)
-    const realOnLeft = Math.random() < 0.5;
-    trials.push({
-        pairId: i,
-        realOnLeft: realOnLeft,
-        leftSrc: realOnLeft ? `images/real/real_${(i+1).toString().padStart(3,'0')}.png` 
-                            : `images/synth/synth_${(i+1).toString().padStart(3,'0')}.png`,
-        rightSrc: realOnLeft ? `images/synth/synth_${(i+1).toString().padStart(3,'0')}.png`
-                             : `images/real/real_${(i+1).toString().padStart(3,'0')}.png`
-    });
+let answers = []; // each entry: { trial, leftValue, rightValue, realSide, pairId }
+
+// Build a random sample of unique pair indices from 1..POOL_SIZE
+function samplePairs(poolSize, k) {
+    const arr = Array.from({length: poolSize}, (_, i) => i + 1);
+    // Fisher-Yates shuffle
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr.slice(0, k);
 }
+
+const chosenPairs = samplePairs(POOL_SIZE, TOTAL_TRIALS);
+
+// Prepare trials array
+let trials = chosenPairs.map((pairNum, idx) => {
+    const realOnLeft = Math.random() < 0.5;
+    const padded = pairNum.toString().padStart(3, '0');
+    return {
+        pairId: pairNum,
+        realOnLeft,
+        leftSrc: realOnLeft ? `images/real/real_${padded}.png` : `images/synth/synth_${padded}.png`,
+        rightSrc: realOnLeft ? `images/synth/synth_${padded}.png` : `images/real/real_${padded}.png`
+    };
+});
 
 // DOM elements
 const leftImg = document.getElementById('left-img');
 const rightImg = document.getElementById('right-img');
-const leftBtn = document.getElementById('left-btn');
-const rightBtn = document.getElementById('right-btn');
+const leftSlider = document.getElementById('left-slider');
+const rightSlider = document.getElementById('right-slider');
+const leftValueSpan = document.getElementById('left-value');
+const rightValueSpan = document.getElementById('right-value');
 const trialSpan = document.getElementById('trial-num');
+const totalTrialsSpan = document.getElementById('total-trials');
+const nextBtn = document.getElementById('next-btn');
 const resultDiv = document.getElementById('result-area');
 
+totalTrialsSpan.innerText = TOTAL_TRIALS;
+
+// Zoom modal elements
+const zoomModal = document.getElementById('zoom-modal');
+const zoomImg = document.getElementById('zoom-img');
+const zoomInBtn = document.getElementById('zoom-in');
+const zoomOutBtn = document.getElementById('zoom-out');
+const closeZoomBtn = document.getElementById('close-zoom');
+let currentZoom = 1;
+
+// Load a trial
 function loadTrial(trialIndex) {
     if (trialIndex >= TOTAL_TRIALS) {
         endTest();
@@ -36,18 +61,29 @@ function loadTrial(trialIndex) {
     leftImg.src = t.leftSrc;
     rightImg.src = t.rightSrc;
     trialSpan.innerText = trialIndex + 1;
+
+    // Reset sliders to neutral (3)
+    leftSlider.value = 3;
+    rightSlider.value = 3;
+    leftValueSpan.innerText = '3';
+    rightValueSpan.innerText = '3';
 }
 
-function recordAnswer(userChoice) {
+// Record the current sliders as the answer and move on
+function recordAnswerAndNext() {
     const t = trials[currentTrial];
+    const leftVal = parseInt(leftSlider.value, 10);
+    const rightVal = parseInt(rightSlider.value, 10);
     const realSide = t.realOnLeft ? 'left' : 'right';
-    const isCorrect = (userChoice === realSide);
+
     answers.push({
         trial: currentTrial + 1,
-        correct: isCorrect,
-        userChoice: userChoice,
+        pairId: t.pairId,
+        leftValue: leftVal,
+        rightValue: rightVal,
         realSide: realSide
     });
+
     currentTrial++;
     if (currentTrial < TOTAL_TRIALS) {
         loadTrial(currentTrial);
@@ -56,54 +92,90 @@ function recordAnswer(userChoice) {
     }
 }
 
+// End of test: show only download/email options (no accuracy)
 function endTest() {
-    // Calculate score
-    const correctCount = answers.filter(a => a.correct).length;
-    const accuracy = (correctCount / TOTAL_TRIALS) * 100;
     resultDiv.innerHTML = `
         <h2>Test completed!</h2>
-        <p>You identified the real mammogram correctly in ${correctCount} out of ${TOTAL_TRIALS} trials (${accuracy.toFixed(1)}%).</p>
+        <p>Your responses have been recorded.</p>
         <div>
             <button id="download-csv">📥 Download results as CSV</button>
             <button id="email-results">📧 Send results via Email</button>
         </div>
     `;
-    // Hide the image buttons
-    leftBtn.style.display = 'none';
-    rightBtn.style.display = 'none';
-    
+    nextBtn.disabled = true;
+
     document.getElementById('download-csv').addEventListener('click', downloadCSV);
     document.getElementById('email-results').addEventListener('click', emailResults);
 }
 
+// CSV download: builds CSV from answers and triggers a download
 function downloadCSV() {
-    let csvRows = [["Trial", "User choice (left/right)", "Real side", "Correct"]];
-    for (let a of answers) {
-        csvRows.push([a.trial, a.userChoice, a.realSide, a.correct ? "Yes" : "No"]);
+    if (answers.length === 0) {
+        alert('No results to download.');
+        return;
     }
-    csvRows.push(["Total correct", correctCount, "", ""]);
-    const csvContent = csvRows.map(row => row.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv" });
+
+    const header = ['Trial', 'PairId', 'LeftValue', 'RightValue', 'RealSide'];
+    const rows = answers.map(a => [a.trial, a.pairId, a.leftValue, a.rightValue, a.realSide]);
+
+    const csvContent = [header, ...rows].map(r => r.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
+
+    const a = document.createElement('a');
     a.href = url;
-    a.download = "turing_test_results.csv";
+    a.download = 'turing_test_results.csv';
+    document.body.appendChild(a); // required for Firefox
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
 }
 
+// Email results: opens mail client with body (mailto) and explains alternatives
 function emailResults() {
-    // Option 1: Use mailto (limited, opens email client)
-    const subject = "Visual Turing Test Results";
-    const body = answers.map(a => `Trial ${a.trial}: chosen ${a.userChoice}, real was ${a.realSide} → ${a.correct ? "correct" : "wrong"}`).join("\n");
+    if (answers.length === 0) {
+        alert('No results to email.');
+        return;
+    }
+    const subject = 'Visual Turing Test Results';
+    const bodyLines = answers.map(a => `Trial ${a.trial} (pair ${a.pairId}): left=${a.leftValue}, right=${a.rightValue}, real=${a.realSide}`);
+    const body = bodyLines.join('\n');
+
+    // mailto approach (opens user's email client)
     window.location.href = `mailto:your-email@example.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    
-    // Option 2 (recommended): Use EmailJS or Formspree – see next section
+
+    // Note: For a serverless web option, integrate EmailJS or Formspree (see comments below).
 }
 
-// Attach event listeners
-leftBtn.addEventListener('click', () => recordAnswer('left'));
-rightBtn.addEventListener('click', () => recordAnswer('right'));
+// Event listeners
+leftSlider.addEventListener('input', () => leftValueSpan.innerText = leftSlider.value);
+rightSlider.addEventListener('input', () => rightValueSpan.innerText = rightSlider.value);
+nextBtn.addEventListener('click', recordAnswerAndNext);
 
-// Start the test
+// Zoom behavior: clicking either image opens modal
+[leftImg, rightImg].forEach(imgEl => {
+    imgEl.addEventListener('click', (e) => {
+        zoomImg.src = e.currentTarget.src;
+        currentZoom = 1;
+        zoomImg.style.transform = `scale(${currentZoom})`;
+        zoomModal.style.display = 'flex';
+    });
+});
+
+zoomInBtn.addEventListener('click', () => {
+    currentZoom = Math.min(currentZoom + 0.25, 4);
+    zoomImg.style.transform = `scale(${currentZoom})`;
+});
+zoomOutBtn.addEventListener('click', () => {
+    currentZoom = Math.max(currentZoom - 0.25, 0.25);
+    zoomImg.style.transform = `scale(${currentZoom})`;
+});
+closeZoomBtn.addEventListener('click', () => {
+    zoomModal.style.display = 'none';
+});
+zoomModal.addEventListener('click', (e) => {
+    if (e.target === zoomModal) zoomModal.style.display = 'none';
+});
+
+// Start
 loadTrial(0);
