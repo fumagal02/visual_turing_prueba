@@ -7,19 +7,23 @@
     <style>
         body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
         .image-container { display: flex; justify-content: center; gap: 40px; margin: 30px 0; }
-        .image-card { text-align: center; width: 420px; }
-        img { width: 400px; height: auto; border: 2px solid #ccc; border-radius: 8px; cursor: zoom-in; }
+        .image-card { text-align: center; width: 420px; position: relative; }
+        .img-wrap { display:flex; align-items:center; justify-content:center; gap:8px; }
+        img.test-img { width: 400px; height: auto; border: 2px solid #ccc; border-radius: 8px; cursor: zoom-in; transition: transform 0.12s ease; }
         .slider-row { margin-top: 8px; display:flex; align-items:center; justify-content:center; gap:10px; }
         input[type="range"] { width: 220px; }
-        button { margin: 10px; padding: 10px 20px; font-size: 16px; cursor: pointer; }
+        button { margin: 6px; padding: 8px 12px; font-size: 14px; cursor: pointer; }
         .trial-info { font-size: 18px; margin: 20px; }
         #result-area { margin-top: 30px; font-weight: bold; }
-        /* Modal for zoom */
+        /* Zoom controls next to each image */
+        .zoom-controls-inline { display:flex; align-items:center; gap:6px; justify-content:center; margin-top:8px; }
+        .zoom-label { font-size:14px; margin-right:6px; }
+        .slider-desc { margin-top:6px; font-size:13px; color:#333; max-width:360px; margin-left:auto; margin-right:auto; text-align:center; }
+        /* Modal for larger view */
         .modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; overflow:auto; background: rgba(0,0,0,0.8); align-items:center; justify-content:center; }
         .modal-content { position:relative; max-width:90%; max-height:90%; }
-        .modal-content img { width: auto; max-width:100%; max-height:80vh; transform-origin:center center; }
-        .zoom-controls { position:absolute; right:10px; top:10px; display:flex; gap:8px; }
-        .hidden { display:none; }
+        .modal-content img { width: auto; max-width:100%; max-height:80vh; transform-origin:center center; transition: transform 0.12s ease; }
+        .modal-zoom-controls { position:absolute; right:10px; top:10px; display:flex; gap:8px; }
     </style>
 </head>
 <body>
@@ -29,21 +33,43 @@
 
     <div class="image-container">
         <div class="image-card">
-            <img id="left-img" src="" alt="Left image"> /* data-side="left" */
+            <div class="img-wrap">
+                <img id="left-img" class="test-img" src="" alt="Left image" data-side="left">
+            </div>
+
+            <div class="zoom-controls-inline">
+                <span class="zoom-label">Zoom</span>
+                <button class="zoom-minus" data-side="left">−</button>
+                <button class="zoom-plus" data-side="left">+</button>
+                <button class="zoom-reset" data-side="left">Reset</button>
+            </div>
+
             <div class="slider-row">
                 <label for="left-slider">Left</label>
                 <input id="left-slider" type="range" min="0" max="6" step="1" value="3">
                 <span id="left-value">3</span>
             </div>
+            <div id="left-desc" class="slider-desc">I am not sure, could be either</div>
         </div>
 
         <div class="image-card">
-            <img id="right-img" src="" alt="Right image"> /*data-side="right"*/
+            <div class="img-wrap">
+                <img id="right-img" class="test-img" src="" alt="Right image" data-side="right">
+            </div>
+
+            <div class="zoom-controls-inline">
+                <span class="zoom-label">Zoom</span>
+                <button class="zoom-minus" data-side="right">−</button>
+                <button class="zoom-plus" data-side="right">+</button>
+                <button class="zoom-reset" data-side="right">Reset</button>
+            </div>
+
             <div class="slider-row">
                 <label for="right-slider">Right</label>
                 <input id="right-slider" type="range" min="0" max="6" step="1" value="3">
                 <span id="right-value">3</span>
             </div>
+            <div id="right-desc" class="slider-desc">I am not sure, could be either</div>
         </div>
     </div>
 
@@ -53,13 +79,13 @@
 
     <div id="result-area"></div>
 
-    <!-- Zoom modal -->
+    <!-- Zoom modal (click image to open larger view) -->
     <div id="zoom-modal" class="modal">
         <div class="modal-content">
-            <div class="zoom-controls">
-                <button id="zoom-in">+</button>
-                <button id="zoom-out">−</button>
-                <button id="close-zoom">✕</button>
+            <div class="modal-zoom-controls">
+                <button id="modal-zoom-in">+</button>
+                <button id="modal-zoom-out">−</button>
+                <button id="modal-close">✕</button>
             </div>
             <img id="zoom-img" src="" alt="Zoomed image">
         </div>
@@ -68,3 +94,4 @@
     <script src="turing-test.js"></script>
 </body>
 </html>
+
